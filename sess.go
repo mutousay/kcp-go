@@ -101,6 +101,8 @@ type (
 
 		isClosed bool // flag the session has Closed
 		mu       sync.Mutex
+				
+		isServerMsg bool //是否是服务端消息
 	}
 
 	setReadBuffer interface {
@@ -332,6 +334,8 @@ func (s *UDPSession) LocalAddr() net.Addr { return s.conn.LocalAddr() }
 
 // RemoteAddr returns the remote network address. The Addr returned is shared by all invocations of RemoteAddr, so do not modify it.
 func (s *UDPSession) RemoteAddr() net.Addr { return s.remote }
+
+func (s *UDPSession) IsGameServer() bool { return s.isServerMsg }
 
 // SetDeadline sets the deadline associated with the listener. A zero time value disables the deadline.
 func (s *UDPSession) SetDeadline(t time.Time) error {
@@ -753,11 +757,38 @@ func (l *Listener) monitor() {
 					}
 
 					if !ok { // new session
+						log.Debugln("new session", addr)						
 						if len(l.chAccepts) < cap(l.chAccepts) && len(l.sessions) < 4096 { // do not let new session overwhelm accept queue and connection count
 							s := newUDPSession(conv, l.dataShards, l.parityShards, l, l.conn, from, l.block)
 							s.kcpInput(data)
 							l.sessions[key] = s
 							l.chAccepts <- s
+							//区分是否来自服务端的请求
+							uData := data[24:]
+							uReader := bytes.NewReader(uData)
+							//todo 直接拿msgID就可以
+							var ser uint16
+							if err := binary.Read(uReader, binary.LittleEndian, &ser); err != nil {
+								log.Debugln("kcp newsession ser error", err)
+							}
+							// 读取ID
+							var msgID uint32
+							if err := binary.Read(uReader, binary.LittleEndian, &msgID); err != nil {
+								log.Debugln("kcp newsession MsgID  error ", err)
+							}
+							var isGameServer bool 
+							if msgID >= 10003 && msgID < 20000 {
+								isGameServer = true
+							} else if msgID >= 40000 && msgID < 50000 {
+								isGameServer = true
+							} else if msgID == 14297662 {
+								isGameServer = true
+							} else {
+								isGameServer = false
+							}
+							log.Debugf("kcp newsession ser:%d msgID:%d isGameServer:%d", ser, msgID, isGameServer)
+							s.isServerMsg = isGameServer
+
 						}
 					} else {
 						s.kcpInput(data)

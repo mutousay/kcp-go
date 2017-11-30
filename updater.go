@@ -55,16 +55,25 @@ func (h *updateHeap) init() {
 
 func (h *updateHeap) addSession(s *UDPSession) {
 	h.mu.Lock()
+	hlen := h.Len()
+	debug.PrintStack()
+	fmt.Println("updateHeap addSession len before", hlen)
 	heap.Push(h, entry{time.Now(), s})
+	ahlen := h.Len()
+	fmt.Println("updateHeap addSession len after", ahlen)
 	h.mu.Unlock()
 	h.wakeup()
 }
 
 func (h *updateHeap) removeSession(s *UDPSession) {
 	h.mu.Lock()
+	hlen := h.Len()
+	fmt.Println("updateHeap removeSession len before", hlen, s.updaterIdx)
 	if s.updaterIdx != -1 {
 		heap.Remove(h, s.updaterIdx)
 	}
+	ahlen := h.Len()
+	fmt.Println("updateHeap removeSession len after", ahlen)
 	h.mu.Unlock()
 }
 
