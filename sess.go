@@ -765,22 +765,25 @@ func (l *Listener) monitor() {
 							l.sessions[key] = s
 							l.chAccepts <- s
 							//区分是否来自服务端的请求
-							uData := data[26:]
-							uReader := bytes.NewReader(uData)
-							// 读取ID
-							var msgID uint32
-							err := binary.Read(uReader, binary.LittleEndian, &msgID); 
 							var isGameServer bool = false
-							if err == nil {
-								if msgID >= 10003 && msgID < 20000 {
-									isGameServer = true
-								} else if msgID >= 40000 && msgID < 50000 {
-									isGameServer = true
-								} else if msgID == 14297662 {
-									isGameServer = true
+							if len(data) > 26 {
+								uData := data[26:]
+								uReader := bytes.NewReader(uData)
+								// 读取ID
+								var msgID uint32
+								err := binary.Read(uReader, binary.LittleEndian, &msgID); 
+								if err == nil {
+									if msgID >= 10003 && msgID < 20000 {
+										isGameServer = true
+									} else if msgID >= 40000 && msgID < 50000 {
+										isGameServer = true
+									} else if msgID == 14297662 {
+										isGameServer = true
+									}
 								}
+								log.Debugf("kcp newsession msgID:%d", msgID)
 							}
-							log.Debugf("kcp newsession msgID:%d isGameServer:%d", msgID, isGameServer)
+							log.Debugf("kcp newsession isGameServer:%d", isGameServer)
 							s.isServerMsg = isGameServer
 						}
 					} else {
